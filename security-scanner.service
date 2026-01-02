@@ -1,0 +1,26 @@
+[Unit]
+Description=Comprehensive Security Scanner
+Documentation=file:///home/paul/src/security-scanner/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=paul
+Group=paul
+WorkingDirectory=/home/paul/src/security-scanner
+ExecStart=/home/paul/src/security-scanner/security-scan.sh
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Resource limits
+CPUQuota=50%
+MemoryLimit=1G
+TasksMax=100
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,40 @@
+================================================================================
+                   SECURITY SCANNER - QUICK START
+================================================================================
+
+STEP 1: CONFIGURE EMAIL (5 minutes)
+------------------------------------
+Edit: nano /home/paul/security-scanner/config/email-config.conf
+
+For Gmail:
+  SMTP_USER="nyepaul@gmail.com"
+  SMTP_PASS="your-app-password"    # Get from https://myaccount.google.com/apppasswords
+  EMAIL_METHOD="smtp"
+
+Save: Ctrl+X, Y, Enter
+
+STEP 2: TEST EMAIL (1 minute)
+------------------------------
+TEST_REPORT="/home/paul/security-scanner/reports/test_report.html"
+/home/paul/security-scanner/scripts/send-email-report.sh "$TEST_REPORT" 45 8 1 2
+
+Check nyepaul@gmail.com for the test report.
+
+STEP 3: DONE!
+-------------
+The scanner will run automatically at 2:00 AM daily.
+
+MANUAL COMMANDS
+---------------
+Run scan now:       /home/paul/security-scanner/scripts/run-scan-and-email.sh
+View reports:       ls -lth /home/paul/security-scanner/reports/
+View logs:          tail -f /home/paul/security-scanner/logs/cron.log
+Check schedule:     crontab -l | grep security-scanner
+Change schedule:    /home/paul/security-scanner/scripts/setup-cron.sh
+
+HELP
+----
+Full docs: /home/paul/security-scanner/README.txt
+Setup details: /home/paul/security-scanner/SETUP_COMPLETE.txt
+
+================================================================================

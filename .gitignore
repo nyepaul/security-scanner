@@ -1,0 +1,16 @@
+# Generated reports and logs
+logs/*.log
+reports/*.html
+reports/*.json
+
+# Keep directory structure
+!logs/.gitkeep
+!reports/.gitkeep
+
+# Backup files
+*.bak
+*~
+
+# Temporary files
+*.tmp
+.DS_Store

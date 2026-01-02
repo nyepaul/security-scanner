@@ -1,0 +1,19 @@
+[Unit]
+Description=Security Scanner Timer (Weekly Scans)
+Documentation=file:///home/paul/src/security-scanner/README.md
+
+[Timer]
+# Run every Sunday at 2:00 AM
+OnCalendar=Sun *-*-* 02:00:00
+
+# Also run 15 minutes after boot (for systems that are not always on)
+OnBootSec=15min
+
+# Run immediately if the system was off during scheduled time
+Persistent=true
+
+# Randomize start time by up to 30 minutes to avoid load spikes
+RandomizedDelaySec=30min
+
+[Install]
+WantedBy=timers.target

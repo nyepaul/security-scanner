@@ -1,0 +1,99 @@
+================================================================================
+SYSTEMD TIMER INSTALLATION INSTRUCTIONS
+================================================================================
+
+The systemd timer setup requires root privileges. Please run the following
+commands to install and enable automated security scans:
+
+OPTION 1 - Use the automated install script:
+================================================================================
+cd /home/paul/src/security-scanner
+sudo ./install.sh
+
+
+OPTION 2 - Manual installation:
+================================================================================
+
+1. Copy systemd unit files:
+   sudo cp /home/paul/src/security-scanner/security-scanner.service /etc/systemd/system/
+   sudo cp /home/paul/src/security-scanner/security-scanner.timer /etc/systemd/system/
+
+2. Reload systemd daemon:
+   sudo systemctl daemon-reload
+
+3. Enable the timer (auto-start on boot):
+   sudo systemctl enable security-scanner.timer
+
+4. Start the timer:
+   sudo systemctl start security-scanner.timer
+
+5. Verify installation:
+   systemctl status security-scanner.timer
+   systemctl list-timers security-scanner.timer
+
+
+SCHEDULE CONFIGURATION
+================================================================================
+The scanner is configured to run:
+- Every Sunday at 2:00 AM (±30 min random delay)
+- 15 minutes after system boot
+- Automatically if system was off during scheduled time
+
+
+MANAGEMENT COMMANDS
+================================================================================
+View timer status:
+  systemctl status security-scanner.timer
+
+View service status:
+  systemctl status security-scanner.service
+
+View logs:
+  journalctl -u security-scanner.service -f
+
+Run scan manually:
+  sudo systemctl start security-scanner.service
+
+Stop timer:
+  sudo systemctl stop security-scanner.timer
+
+Disable timer:
+  sudo systemctl disable security-scanner.timer
+
+Restart timer (after config changes):
+  sudo systemctl restart security-scanner.timer
+
+
+CUSTOMIZATION
+================================================================================
+To change the scan schedule, edit the timer file:
+  sudo nano /etc/systemd/system/security-scanner.timer
+
+Example schedules:
+- Daily at 3 AM:      OnCalendar=*-*-* 03:00:00
+- Every 6 hours:      OnCalendar=*-*-* 0/6:00:00
+- Weekdays at 1 AM:   OnCalendar=Mon-Fri *-*-* 01:00:00
+- First of month:     OnCalendar=*-*-01 02:00:00
+
+After editing, reload and restart:
+  sudo systemctl daemon-reload
+  sudo systemctl restart security-scanner.timer
+
+
+UNINSTALL
+================================================================================
+To completely remove the systemd timer:
+  sudo systemctl stop security-scanner.timer
+  sudo systemctl disable security-scanner.timer
+  sudo rm /etc/systemd/system/security-scanner.service
+  sudo rm /etc/systemd/system/security-scanner.timer
+  sudo systemctl daemon-reload
+
+
+VERIFY INSTALLATION
+================================================================================
+After installation, verify with:
+  systemctl list-timers | grep security-scanner
+
+You should see output showing the next scheduled run time.
+================================================================================
