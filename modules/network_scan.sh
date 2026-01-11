@@ -27,7 +27,7 @@ network_scan_module() {
 
     # Get primary network details
     PRIMARY_IP=$(ip route get 1.1.1.1 | grep -oP 'src \K\S+' 2>/dev/null || echo "192.168.87.50")
-    NETWORK_RANGE=$(echo $PRIMARY_IP | cut -d'.' -f1-3).0/24
+    NETWORK_RANGE=$(echo "$PRIMARY_IP" | cut -d'.' -f1-3).0/24
 
     log_scan "<h3>Network Range: $NETWORK_RANGE</h3>"
 
