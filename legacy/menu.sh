@@ -1,12 +1,30 @@
 #!/bin/bash
 # menu.sh - Interactive Security Scanner Management Menu
-# Provides user-friendly interface for managing scans, reports, logs, and systemd
+# Provides user-friendly interface for managing scans, reports, logs, and scheduling
 
 # Strict error handling
 set -uo pipefail
 
 # Determine script location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Detect OS
+detect_os() {
+    case "$(uname -s)" in
+        Linux*)
+            OS="Linux"
+            ;;
+        Darwin*)
+            OS="macOS"
+            ;;
+        *)
+            OS="Unknown"
+            ;;
+    esac
+}
+
+# Auto-detect OS at startup
+detect_os
 
 # Load configuration
 if [ ! -f "$SCRIPT_DIR/config/scanner.conf" ]; then
@@ -84,6 +102,17 @@ get_last_scan_info() {
 # Main Menu
 main_menu() {
     local width=62
+
+    # Determine schedule management label based on OS
+    local schedule_label
+    if [ "$OS" = "Linux" ]; then
+        schedule_label="Schedule Management (systemd)"
+    elif [ "$OS" = "macOS" ]; then
+        schedule_label="Schedule Management (launchd)"
+    else
+        schedule_label="Schedule Management"
+    fi
+
     while true; do
         display_header
         get_last_scan_info
@@ -95,7 +124,7 @@ main_menu() {
         draw_box_line "${COLOR_GREEN}1)${NC} Run Security Scan" $width
         draw_box_line "${COLOR_GREEN}2)${NC} View Reports" $width
         draw_box_line "${COLOR_GREEN}3)${NC} View Logs" $width
-        draw_box_line "${COLOR_GREEN}4)${NC} Systemd Management" $width
+        draw_box_line "${COLOR_GREEN}4)${NC} $schedule_label" $width
         draw_box_line "${COLOR_GREEN}5)${NC} Configuration" $width
         draw_box_line "${COLOR_GREEN}6)${NC} Help & Information" $width
         draw_box_line "${COLOR_GREEN}q)${NC} Quit" $width
@@ -108,7 +137,7 @@ main_menu() {
             1) scan_menu ;;
             2) reports_menu ;;
             3) logs_menu ;;
-            4) systemd_menu ;;
+            4) schedule_menu ;;
             5) config_menu ;;
             6) help_menu ;;
             q|Q)
@@ -322,13 +351,30 @@ logs_menu() {
     done
 }
 
-# Systemd Management Menu
+# Schedule Management Menu (cross-platform)
+schedule_menu() {
+    if [ "$OS" = "Linux" ]; then
+        systemd_menu
+    elif [ "$OS" = "macOS" ]; then
+        launchd_menu
+    else
+        display_header
+        error_message "Schedule management not supported on $OS"
+        echo ""
+        echo "You can still run scans manually:"
+        echo "  $INSTALL_DIR/security-scan.sh"
+        echo ""
+        pause_for_user
+    fi
+}
+
+# Linux Systemd Management Menu
 systemd_menu() {
     local width=62
     while true; do
         display_header
         draw_box_top $width
-        draw_box_line "${COLOR_YELLOW}Systemd Management${NC}" $width
+        draw_box_line "${COLOR_YELLOW}Schedule Management - systemd${NC}" $width
         draw_box_separator $width
         draw_box_line "${COLOR_GREEN}1)${NC} Show timer status" $width
         draw_box_line "${COLOR_GREEN}2)${NC} Show service status" $width
@@ -375,6 +421,63 @@ systemd_menu() {
             7)
                 display_header
                 start_manual_systemd_scan
+                ;;
+            b|B) return ;;
+            *)
+                error_message "Invalid selection."
+                pause_for_user
+                ;;
+        esac
+    done
+}
+
+# macOS launchd Management Menu
+launchd_menu() {
+    local width=62
+    while true; do
+        display_header
+        draw_box_top $width
+        draw_box_line "${COLOR_YELLOW}Schedule Management - launchd${NC}" $width
+        draw_box_separator $width
+        draw_box_line "${COLOR_GREEN}1)${NC} Show launchd status" $width
+        draw_box_line "${COLOR_GREEN}2)${NC} View launchd logs" $width
+        draw_box_line "${COLOR_GREEN}3)${NC} Load/Enable schedule" $width
+        draw_box_line "${COLOR_GREEN}4)${NC} Unload/Disable schedule" $width
+        draw_box_line "${COLOR_GREEN}5)${NC} Create/Update plist file" $width
+        draw_box_line "${COLOR_GREEN}6)${NC} Show plist configuration" $width
+        draw_box_line "${COLOR_GREEN}b)${NC} Back to Main Menu" $width
+        draw_box_bottom $width
+        echo ""
+
+        read -p "Select option: " choice
+
+        case "$choice" in
+            1)
+                display_header
+                show_launchd_status
+                pause_for_user
+                ;;
+            2)
+                display_header
+                view_launchd_logs
+                pause_for_user
+                ;;
+            3)
+                display_header
+                load_launchd_service
+                ;;
+            4)
+                display_header
+                unload_launchd_service
+                ;;
+            5)
+                display_header
+                create_launchd_plist_interactive
+                ;;
+            6)
+                display_header
+                show_plist_config
+                pause_for_user
                 ;;
             b|B) return ;;
             *)

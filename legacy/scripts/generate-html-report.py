@@ -26,6 +26,97 @@ def severity_badge(severity):
     color = severity_color(severity)
     return f'<span class="severity-badge" style="background-color: {color};">{severity}</span>'
 
+def generate_network_section(modules_data):
+    """Generate HTML section for Network Scan"""
+    if not modules_data or 'network' not in modules_data:
+        return ""
+
+    net = modules_data['network'].get('data', {})
+    if not net:
+        return ""
+
+    html = """
+        <div class="findings-section" style="background: white; border-bottom: 1px solid #eee;">
+            <h2>Network Discovery</h2>
+            
+            <div class="finding-card INFO" style="border-left-color: #667eea;">
+                <div class="finding-header">
+                    <div class="finding-title">Network Interfaces</div>
+                </div>
+                <div class="finding-description">
+                    <pre>{}</pre>
+                </div>
+            </div>
+
+            <div class="finding-card INFO" style="border-left-color: #667eea;">
+                <div class="finding-header">
+                    <div class="finding-title">Active Hosts ({})</div>
+                </div>
+                <div class="finding-description">
+                    <pre>{}</pre>
+                </div>
+            </div>
+
+            <div class="finding-card INFO" style="border-left-color: #667eea;">
+                <div class="finding-header">
+                    <div class="finding-title">Localhost Port Scan</div>
+                </div>
+                <div class="finding-description">
+                    <pre>{}</pre>
+                </div>
+            </div>
+        </div>
+    """.format(
+        html_module.escape(net.get('interfaces', 'N/A')),
+        net.get('active_hosts', {}).get('count', 0),
+        html_module.escape('\n'.join(net.get('active_hosts', {}).get('list', [])) or "No active hosts found"),
+        html_module.escape(net.get('port_scan', {}).get('output', 'N/A'))
+    )
+    return html
+
+def generate_audit_section(modules_data):
+    """Generate HTML section for Localhost Audit"""
+    if not modules_data or 'audit' not in modules_data:
+        return ""
+
+    audit = modules_data['audit'].get('data', {})
+    if not audit:
+        return ""
+
+    html = """
+        <div class="findings-section" style="background: white; border-bottom: 1px solid #eee;">
+            <h2>System Audit</h2>
+    """
+
+    # Helper to create simple cards
+    def create_card(title, content):
+        return f"""
+            <div class="finding-card INFO" style="border-left-color: #764ba2;">
+                <div class="finding-header">
+                    <div class="finding-title">{title}</div>
+                </div>
+                <div class="finding-description">
+                    <pre>{html_module.escape(str(content))}</pre>
+                </div>
+            </div>
+        """
+
+    html += create_card("Security Updates", audit.get('security_updates', {}).get('details', 'N/A'))
+    html += create_card("Running Services", audit.get('services', 'N/A'))
+    
+    failed_logins = audit.get('failed_logins', {})
+    count = failed_logins.get('count', 0)
+    title = f"Failed Logins (Count: {count})"
+    html += create_card(title, failed_logins.get('details', 'N/A'))
+
+    html += create_card("User Accounts", f"Total: {audit.get('users', {}).get('total', 0)}\nShell Users: {audit.get('users', {}).get('shell_users_count', 0)}\n\n{audit.get('users', {}).get('shell_users_list', '')}")
+    
+    html += create_card("Firewall Status", audit.get('firewall', 'N/A'))
+    html += create_card("SSH Configuration", audit.get('ssh_config', 'N/A'))
+
+    html += "</div>"
+    return html
+
 def generate_html_report(json_file, output_file):
     """Generate comprehensive HTML security report"""
 
@@ -39,6 +130,7 @@ def generate_html_report(json_file, output_file):
     risk_score = data.get('risk_score', 0)
     summary = data.get('summary', {})
     findings = data.get('findings', [])
+    modules_data = data.get('modules', {})
 
     # Calculate percentages for chart
     total = summary.get('total', 0)
@@ -439,6 +531,16 @@ def generate_html_report(json_file, output_file):
             </div>
         </div>
 
+        <!-- Network Section -->
+"""
+    html += generate_network_section(modules_data)
+
+    html += """
+        <!-- Audit Section -->
+"""
+    html += generate_audit_section(modules_data)
+
+    html += """
         <!-- Detailed Findings -->
         <div class="findings-section">
             <h2>Detailed Findings</h2>

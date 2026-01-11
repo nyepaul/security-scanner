@@ -1,82 +1,62 @@
-# AI Assistant Skills & Guidelines
+# AI Assistant Skills: Design & Development
 
-This document defines the core skills, conventions, and workflows for AI assistants (Claude, Gemini, etc.) working on the `security-scanner` project. It serves as a shared knowledge base to ensure consistency and quality.
+This document defines the core skills, conventions, and workflows for AI assistants performing **System Design and Application Development**.
 
-## 1. Bash Scripting Expertise
+## 1. System Design & Architecture
 
-### Core Standards
-*   **Safety First**: Main scripts must start with `set -euo pipefail`.
-    *   `-e`: Exit immediately if a command exits with a non-zero status.
-    *   `-u`: Treat unset variables as an error.
-    *   `-o pipefail`: Return value of a pipeline is the status of the last command to exit with a non-zero status.
-*   **Module Exception**: Sub-modules (in `modules/`) should generally use `set -uo pipefail` (omitting `-e`) to allow individual checks to fail without crashing the entire module. Failures should be logged/handled gracefully.
-*   **Quoting**: Always quote variables (`"$VAR"`) to prevent word splitting and globbing issues.
-*   **Test Expressions**: Prefer double brackets `[[ ... ]]` over single `[ ... ]` for safer and more feature-rich comparisons.
+### Approach
+*   **Requirements First**: Before generating code, clarify the *Problem*, *Users*, and *Constraints*. Ask questions if requirements are vague.
+*   **Security by Design**: Incorporate security controls (authentication, authorization, data protection) at the design phase, not as an afterthought.
+*   **Trade-off Analysis**: When proposing solutions, explicitly state trade-offs (e.g., "This approach is faster to build but harder to scale...").
 
-### Best Practices
-*   **Idempotency**: Scripts (especially `install.sh` and `deploy-production.sh`) should be idempotent. Running them multiple times should be safe and result in the same state.
-*   **Path Resolution**: dynamic path resolution using `SCRIPT_DIR`:
-    ```bash
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    ```
-*   **Logging**: Use a consistent logging format. Messages should be actionable.
-*   **Portability**: Be mindful of differences between macOS (BSD-based userland) and Linux (GNU-based userland). Use `grep`, `sed`, `awk` in portable ways or detect OS and adapt.
+### Diagramming (Mermaid.js)
+Use Mermaid.js to visualize complex logic or architecture.
+*   **Flowcharts**: For logic flows and user journeys.
+*   **Sequence Diagrams**: For API interactions and component communication.
+*   **ER Diagrams**: For database schema modeling.
 
-## 2. Security Scanner Architecture
+## 2. Coding Standards (Accuracy & Maintainability)
 
-### Module Protocol
-*   **Output**: Modules MUST print HTML content to `stdout`.
-*   **Data Passing**: Vulnerability counts are passed via specific string patterns on their own lines:
-    *   `CRITICAL=X`
-    *   `HIGH=X`
-    *   `MEDIUM=X`
-    *   `LOW=X`
-*   **Isolation**: Modules are executed as subprocesses (`bash module.sh`), not sourced. This prevents variable pollution.
+### General Principles
+*   **SOLID**: Adhere to Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion principles.
+*   **DRY (Don't Repeat Yourself)**: Extract common logic into reusable functions or modules.
+*   **KISS (Keep It Simple, Stupid)**: Prefer simple, readable solutions over clever, complex ones.
 
-### Report Generation
-*   Reports are purely HTML/CSS generated via Bash here-docs.
-*   Do not rely on external template engines.
-*   CSS is embedded directly in the HTML `<head>`.
-*   Risk scores are calculated in the main orchestration script based on the counts returned by modules.
+### Type Safety
+*   **Strict Typing**: Use strict typing whenever the language supports it (e.g., TypeScript `strict: true`, Python Type Hints).
+*   **No `any`**: Avoid `any` or equivalent loose types unless absolutely necessary and documented.
 
-## 3. Cross-Platform Strategy
+### Error Handling
+*   **Fail Gracefully**: Handle errors at boundaries. Do not crash the application.
+*   **Contextual Logging**: Log *what* happened, *where* it happened, and *why* (include stack traces only in debug/dev modes).
+*   **User Feedback**: Provide clear, sanitized error messages to users; never expose internal implementation details.
 
-This project targets **Linux** (production/servers) and **macOS** (development/local scanning).
+## 3. Security Standards (Secure Development)
 
-*   **Service Management**:
-    *   **Linux**: Use `systemd` (service + timer units).
-    *   **macOS**: Use `launchd` (plist files) or manual execution.
-*   **Dependency Management**:
-    *   **Linux**: `apt-get`, `yum`, etc.
-    *   **macOS**: `brew`.
-*   **OS Detection**:
-    ```bash
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS specific
-    else
-        # Linux specific
-    fi
-    ```
+### OWASP Top 10 Focus
+*   **Input Validation**: Validate ALL external input (API params, user input, file data) against a strict schema (e.g., Zod, Pydantic) at the system boundary.
+*   **Authentication/Authorization**: Never roll your own crypto. Use established libraries. Implement "Least Privilege" access control.
+*   **Dependency Management**: Assume dependencies are untrusted. Pin versions. Suggest scanning tools (e.g., `npm audit`, `pip-audit`).
 
-## 4. Development Workflow
+### Secrets Management
+*   **No Hardcoded Secrets**: NEVER commit API keys, passwords, or tokens to code.
+*   **Environment Variables**: Use `.env` files for local development and platform-specific secret stores for production.
 
-### Testing
-*   **Dry Run**: Always verify changes with `./security-scan.sh --test` to skip email delivery.
-*   **Module Testing**: Test modified modules individually: `bash modules/vulnerability_scan.sh`.
-*   **Production Validation**: Run `./validate-production-ready.sh` before marking a task complete.
+## 4. Development Workflow (Efficiency)
 
-### Deployment
-*   Production logic resides in `deploy-production.sh`.
-*   This script handles file copying, permission setting, and systemd reloading.
-*   **Never** manually edit files in `/opt/security-scanner` on production; edit the source and redeploy.
+### Iterative Process
+1.  **Plan**: Break tasks into small, verifiable steps.
+2.  **Implement**: Write the code.
+3.  **Verify**: Run tests and linters.
+4.  **Refactor**: Clean up without changing behavior.
 
-## 5. System Prompt Augmentation (Role-Playing)
+### Testing Strategy
+*   **Unit Tests**: Test individual functions/classes in isolation. Aim for high coverage on business logic.
+*   **Integration Tests**: Verify that components work together (e.g., API endpoint -> Database).
+*   **Test Driven Development (TDD)**: Preferred for complex logic—write the failing test first.
 
-When acting as an expert developer on this project, adopt the following persona:
-*   **Role**: Senior Security Engineer & Systems Architect.
-*   **Focus**: Stability, security, and clean code.
-*   **Tone**: Professional, concise, and safety-conscious.
-*   **Priorities**:
-    1.  Don't break the scanner (it runs unattended).
-    2.  Don't leak sensitive data (reports contain vulnerability info).
-    3.  Ensure emails are delivered reliably.
+## 5. Persona & Tone
+
+*   **Role**: Senior Software Architect & Security Engineer.
+*   **Tone**: Professional, precise, and proactive.
+*   **Mindset**: "It works" is not enough; it must be secure, maintainable, and correct.

@@ -509,3 +509,283 @@ verify_paths() {
 
     return 0
 }
+
+################################################################################
+# macOS launchd Management Functions
+################################################################################
+
+PLIST_FILE="$HOME/Library/LaunchAgents/com.security-scanner.plist"
+
+show_launchd_status() {
+    echo ""
+    echo "launchd Service Status:"
+    echo "======================="
+    echo ""
+
+    if [ ! -f "$PLIST_FILE" ]; then
+        warning_message "Plist file not found: $PLIST_FILE"
+        echo ""
+        echo "Create the plist file first (option 5 in menu)"
+        return 1
+    fi
+
+    echo -e "${COLOR_BLUE}Plist File:${NC} $PLIST_FILE"
+    echo ""
+
+    # Check if loaded
+    if launchctl list | grep -q "com.security-scanner"; then
+        success_message "Service is LOADED and ACTIVE"
+        echo ""
+        echo "Service Details:"
+        launchctl list | grep "com.security-scanner"
+        echo ""
+        echo -e "${COLOR_GREEN}Status:${NC} Scheduled scans enabled"
+        echo -e "${COLOR_GREEN}Schedule:${NC} Every Sunday at 2:00 AM"
+    else
+        warning_message "Service is NOT LOADED"
+        echo ""
+        echo "Load the service with option 3 in menu"
+    fi
+
+    echo ""
+}
+
+view_launchd_logs() {
+    echo ""
+    info_message "Viewing launchd logs..."
+    echo ""
+
+    local log_file="$INSTALL_DIR/logs/launchd.log"
+    local err_file="$INSTALL_DIR/logs/launchd.err"
+
+    if [ -f "$log_file" ]; then
+        echo "=== Standard Output Log ==="
+        echo ""
+        tail -50 "$log_file"
+        echo ""
+    else
+        warning_message "No stdout log found at: $log_file"
+        echo ""
+    fi
+
+    if [ -f "$err_file" ]; then
+        echo "=== Error Log ==="
+        echo ""
+        tail -50 "$err_file"
+        echo ""
+    else
+        info_message "No error log found at: $err_file"
+        echo ""
+    fi
+
+    echo "Full logs at:"
+    echo "  Stdout: $log_file"
+    echo "  Stderr: $err_file"
+    echo ""
+}
+
+load_launchd_service() {
+    echo "Load launchd Service"
+    echo "===================="
+    echo ""
+
+    if [ ! -f "$PLIST_FILE" ]; then
+        error_message "Plist file not found: $PLIST_FILE"
+        echo ""
+        echo "Create the plist file first (option 5 in menu)"
+        pause_for_user
+        return 1
+    fi
+
+    # Check if already loaded
+    if launchctl list | grep -q "com.security-scanner"; then
+        warning_message "Service is already loaded"
+        echo ""
+        if confirm_action "Reload service?"; then
+            launchctl unload "$PLIST_FILE" 2>/dev/null
+            sleep 1
+        else
+            info_message "Cancelled"
+            pause_for_user
+            return 0
+        fi
+    fi
+
+    info_message "Loading service from: $PLIST_FILE"
+    echo ""
+
+    if launchctl load "$PLIST_FILE" 2>/dev/null; then
+        success_message "Service loaded successfully"
+        echo ""
+        echo -e "${COLOR_GREEN}✓${NC} Scheduled scans enabled"
+        echo -e "${COLOR_GREEN}✓${NC} Will run every Sunday at 2:00 AM"
+        echo ""
+        echo "Check status with option 1"
+    else
+        error_message "Failed to load service"
+        echo ""
+        echo "This could be due to:"
+        echo "  - Service already loaded (try option 4 to unload first)"
+        echo "  - Permission issues"
+        echo "  - Invalid plist format"
+    fi
+
+    pause_for_user
+}
+
+unload_launchd_service() {
+    echo "Unload launchd Service"
+    echo "======================"
+    echo ""
+
+    if ! launchctl list | grep -q "com.security-scanner"; then
+        warning_message "Service is not currently loaded"
+        pause_for_user
+        return 0
+    fi
+
+    warning_message "This will disable automatic scheduled scans"
+    echo ""
+
+    if ! confirm_action "Unload service?"; then
+        info_message "Cancelled"
+        pause_for_user
+        return 0
+    fi
+
+    echo ""
+    if launchctl unload "$PLIST_FILE" 2>/dev/null; then
+        success_message "Service unloaded successfully"
+        echo ""
+        echo "Scheduled scans are now disabled"
+        echo "You can still run scans manually"
+    else
+        error_message "Failed to unload service"
+    fi
+
+    pause_for_user
+}
+
+create_launchd_plist_interactive() {
+    echo "Create/Update launchd Plist"
+    echo "==========================="
+    echo ""
+
+    if [ -f "$PLIST_FILE" ]; then
+        warning_message "Plist file already exists"
+        echo ""
+        if ! confirm_action "Overwrite existing plist?"; then
+            info_message "Cancelled"
+            pause_for_user
+            return 0
+        fi
+
+        # Unload if currently loaded
+        if launchctl list | grep -q "com.security-scanner"; then
+            info_message "Unloading current service..."
+            launchctl unload "$PLIST_FILE" 2>/dev/null
+        fi
+    fi
+
+    echo ""
+    info_message "Creating plist file..."
+
+    # Create directory if needed
+    mkdir -p "$HOME/Library/LaunchAgents"
+
+    # Create plist
+    cat > "$PLIST_FILE" << PLIST_EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.security-scanner</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$INSTALL_DIR/security-scan.sh</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>0</integer>
+        <key>Hour</key>
+        <integer>2</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>$INSTALL_DIR/logs/launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>$INSTALL_DIR/logs/launchd.err</string>
+</dict>
+</plist>
+PLIST_EOF
+
+    if [ -f "$PLIST_FILE" ]; then
+        success_message "Plist file created successfully"
+        echo ""
+        echo -e "${COLOR_GREEN}Location:${NC} $PLIST_FILE"
+        echo -e "${COLOR_GREEN}Schedule:${NC} Every Sunday at 2:00 AM"
+        echo ""
+
+        if confirm_action "Load service now?"; then
+            echo ""
+            if launchctl load "$PLIST_FILE" 2>/dev/null; then
+                success_message "Service loaded and enabled"
+            else
+                error_message "Failed to load service"
+            fi
+        fi
+    else
+        error_message "Failed to create plist file"
+    fi
+
+    pause_for_user
+}
+
+show_plist_config() {
+    echo ""
+    echo "launchd Plist Configuration:"
+    echo "============================"
+    echo ""
+
+    if [ ! -f "$PLIST_FILE" ]; then
+        warning_message "Plist file not found: $PLIST_FILE"
+        echo ""
+        echo "Create it with option 5"
+        return 1
+    fi
+
+    echo -e "${COLOR_BLUE}File:${NC} $PLIST_FILE"
+    echo ""
+    echo "Contents:"
+    echo "========="
+    cat "$PLIST_FILE"
+    echo ""
+
+    # Extract schedule info
+    echo "Schedule Details:"
+    echo "================="
+    if grep -q "Weekday" "$PLIST_FILE"; then
+        local weekday=$(grep -A1 "Weekday" "$PLIST_FILE" | grep "integer" | sed 's/.*<integer>\(.*\)<\/integer>/\1/')
+        local hour=$(grep -A1 "Hour" "$PLIST_FILE" | grep "integer" | sed 's/.*<integer>\(.*\)<\/integer>/\1/')
+        local minute=$(grep -A1 "Minute" "$PLIST_FILE" | grep "integer" | sed 's/.*<integer>\(.*\)<\/integer>/\1/')
+
+        local day_name="Sunday"
+        case $weekday in
+            0) day_name="Sunday" ;;
+            1) day_name="Monday" ;;
+            2) day_name="Tuesday" ;;
+            3) day_name="Wednesday" ;;
+            4) day_name="Thursday" ;;
+            5) day_name="Friday" ;;
+            6) day_name="Saturday" ;;
+        esac
+
+        echo -e "${COLOR_GREEN}Day:${NC} $day_name (weekday $weekday)"
+        echo -e "${COLOR_GREEN}Time:${NC} $(printf "%02d:%02d" $hour $minute)"
+    fi
+
+    echo ""
+}
