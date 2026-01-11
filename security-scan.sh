@@ -15,6 +15,24 @@ SKIP_EMAIL=false
 # Determine script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Detect OS
+detect_os() {
+    case "$(uname -s)" in
+        Linux*)
+            OS="Linux"
+            ;;
+        Darwin*)
+            OS="macOS"
+            ;;
+        *)
+            OS="Unknown"
+            ;;
+    esac
+}
+
+# Auto-detect OS at startup
+detect_os
+
 # Load version
 VERSION="1.0.0"
 if [ -f "$SCRIPT_DIR/VERSION" ]; then
@@ -83,6 +101,103 @@ parse_arguments() {
                 ;;
         esac
     done
+}
+
+# Check for critical environment issues and offer to run install.sh
+check_environment_health() {
+    local issues_found=false
+    local issue_list=""
+
+    # Check if config paths match current OS
+    if [ "$OS" = "macOS" ]; then
+        if [[ "$INSTALL_DIR" == /home/* ]]; then
+            issues_found=true
+            issue_list="${issue_list}\n  - Configuration has Linux paths but running on macOS"
+        fi
+    elif [ "$OS" = "Linux" ]; then
+        if [[ "$INSTALL_DIR" == /Users/* ]]; then
+            issues_found=true
+            issue_list="${issue_list}\n  - Configuration has macOS paths but running on Linux"
+        fi
+    fi
+
+    # Check if critical dependencies are missing
+    if ! command -v nmap &> /dev/null; then
+        issues_found=true
+        issue_list="${issue_list}\n  - nmap is not installed (required for network scanning)"
+    fi
+
+    # If issues found, offer to run install script
+    if [ "$issues_found" = true ]; then
+        echo ""
+        echo "========================================"
+        echo "⚠  ENVIRONMENT ISSUES DETECTED"
+        echo "========================================"
+        echo -e "$issue_list"
+        echo ""
+        echo "The install.sh script can fix these issues automatically."
+        echo ""
+        read -p "Run install.sh now? (y/n): " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo ""
+            echo "Running installation script..."
+            bash "$SCRIPT_DIR/install.sh"
+            echo ""
+            echo "Installation complete. Please run the scanner again."
+            exit 0
+        else
+            echo ""
+            echo "Continuing with current configuration..."
+            echo "You can run install.sh manually later: $SCRIPT_DIR/install.sh"
+            echo ""
+            sleep 2
+        fi
+    fi
+}
+
+# Environment setup - ensures required directories exist
+setup_environment() {
+    local setup_needed=false
+
+    # Create reports directory if it doesn't exist
+    if [ ! -d "$REPORTS_DIR" ]; then
+        echo "Creating reports directory: $REPORTS_DIR"
+        mkdir -p "$REPORTS_DIR"
+        setup_needed=true
+    fi
+
+    # Create logs directory if it doesn't exist
+    if [ ! -d "$LOGS_DIR" ]; then
+        echo "Creating logs directory: $LOGS_DIR"
+        mkdir -p "$LOGS_DIR"
+        setup_needed=true
+    fi
+
+    # Create .gitignore for reports and logs if they don't exist
+    if [ ! -f "$REPORTS_DIR/.gitignore" ]; then
+        echo "*.html" > "$REPORTS_DIR/.gitignore"
+    fi
+
+    if [ ! -f "$LOGS_DIR/.gitignore" ]; then
+        echo "*.log" > "$LOGS_DIR/.gitignore"
+    fi
+
+    # Verify directories are writable
+    if [ ! -w "$REPORTS_DIR" ]; then
+        echo "ERROR: Reports directory is not writable: $REPORTS_DIR"
+        exit 1
+    fi
+
+    if [ ! -w "$LOGS_DIR" ]; then
+        echo "ERROR: Logs directory is not writable: $LOGS_DIR"
+        exit 1
+    fi
+
+    if [ "$setup_needed" = true ]; then
+        echo "Environment setup complete"
+        echo ""
+    fi
 }
 
 # Logging function
@@ -423,7 +538,14 @@ main() {
     # Parse command line arguments
     parse_arguments "$@"
 
+    # Check environment health and offer to run install.sh if needed
+    check_environment_health
+
+    # Setup environment (create directories, etc.)
+    setup_environment
+
     log "==================== Security Scan Started ===================="
+    log "Operating System: $OS"
     log "Version: $VERSION"
     log "Scan ID: $TIMESTAMP"
     log "Report will be saved to: $REPORT_FILE"

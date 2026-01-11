@@ -3,9 +3,9 @@ logs/*.log
 reports/*.html
 reports/*.json
 
-# Keep directory structure
-!logs/.gitkeep
-!reports/.gitkeep
+# Keep .gitignore files in generated directories
+!logs/.gitignore
+!reports/.gitignore
 
 # Backup files
 *.bak

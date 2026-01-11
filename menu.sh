@@ -38,13 +38,34 @@ init_menu() {
     # Detect browser
     detect_browser
 
-    # Verify critical paths exist
-    mkdir -p "$REPORTS_DIR" "$LOGS_DIR" 2>/dev/null || true
+    # Setup environment - create necessary directories
+    local setup_msg=""
+
+    if [ ! -d "$REPORTS_DIR" ]; then
+        mkdir -p "$REPORTS_DIR"
+        echo "*.html" > "$REPORTS_DIR/.gitignore"
+        setup_msg="Created reports directory"
+    fi
+
+    if [ ! -d "$LOGS_DIR" ]; then
+        mkdir -p "$LOGS_DIR"
+        echo "*.log" > "$LOGS_DIR/.gitignore"
+        [ -n "$setup_msg" ] && setup_msg="$setup_msg and logs directory" || setup_msg="Created logs directory"
+    fi
+
+    # Display setup message if directories were created
+    if [ -n "$setup_msg" ]; then
+        echo ""
+        echo -e "${COLOR_GREEN}✓${NC} $setup_msg"
+        echo ""
+        sleep 1
+    fi
 }
 
 # Get last scan information
 get_last_scan_info() {
-    local latest_report=$(find "$REPORTS_DIR" -name "security_report_*.html" -type f -printf '%T+ %p\n' 2>/dev/null | sort -r | head -1 | cut -d' ' -f2-)
+    # Cross-platform approach - use ls instead of find -printf
+    local latest_report=$(ls -t "$REPORTS_DIR"/security_report_*.html 2>/dev/null | head -1)
 
     if [ -n "$latest_report" ]; then
         local basename=$(basename "$latest_report")
