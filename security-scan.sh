@@ -5,6 +5,13 @@
 # Version: 1.0.0
 # License: MIT
 # Author: Security Scanner Team
+#
+# FEATURES:
+# - Environment auto-detection (hostname, OS, network, paths)
+# - Dynamic network discovery and security scanning
+# - Adapts to available system tools
+# - Works on any Linux distribution without configuration
+# - Generates beautiful HTML reports with actionable remediation links
 ################################################################################
 
 set -euo pipefail
@@ -426,6 +433,10 @@ main() {
     log "==================== Security Scan Started ===================="
     log "Version: $VERSION"
     log "Scan ID: $TIMESTAMP"
+    log "Hostname: $(hostname)"
+    log "Operating System: $(grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d'"' -f2 || uname -s)"
+    log "Kernel: $(uname -r)"
+    log "Install Directory: $INSTALL_DIR"
     log "Report will be saved to: $REPORT_FILE"
 
     if [ "$SKIP_EMAIL" = true ]; then

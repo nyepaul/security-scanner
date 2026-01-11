@@ -25,23 +25,32 @@ network_scan_module() {
     log_scan "$INTERFACES"
     log_scan "</pre>"
 
-    # Get primary network details
-    PRIMARY_IP=$(ip route get 1.1.1.1 | grep -oP 'src \K\S+' 2>/dev/null || echo "192.168.87.50")
-    NETWORK_RANGE=$(echo "$PRIMARY_IP" | cut -d'.' -f1-3).0/24
+    # Get primary network details - dynamically detect based on default route
+    PRIMARY_IP=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
 
-    log_scan "<h3>Network Range: $NETWORK_RANGE</h3>"
+    if [ -n "$PRIMARY_IP" ]; then
+        NETWORK_RANGE=$(echo "$PRIMARY_IP" | cut -d'.' -f1-3).0/24
+        log_scan "<h3>Network Range: $NETWORK_RANGE (Primary IP: $PRIMARY_IP)</h3>"
+    else
+        log_scan "<h3>Network Range: Unable to detect (no active network interfaces)</h3>"
+        NETWORK_RANGE="127.0.0.1/32"
+    fi
 
     # Quick host discovery
     log_scan "<h4>Active Hosts Discovery</h4>"
     log_scan "<pre>"
 
     if command -v nmap &> /dev/null; then
-        if ACTIVE_HOSTS=$(timeout $NETWORK_DISCOVERY_TIMEOUT nmap -sn -T4 $NETWORK_RANGE 2>/dev/null | grep "Nmap scan report" | awk '{print $5}'); then
-            HOST_COUNT=$(echo "$ACTIVE_HOSTS" | wc -l)
-            log_scan "Found $HOST_COUNT active hosts on $NETWORK_RANGE:"
-            log_scan "$ACTIVE_HOSTS"
+        if [ "$NETWORK_RANGE" != "127.0.0.1/32" ]; then
+            if ACTIVE_HOSTS=$(timeout $NETWORK_DISCOVERY_TIMEOUT nmap -sn -T4 $NETWORK_RANGE 2>/dev/null | grep "Nmap scan report" | awk '{print $5}'); then
+                HOST_COUNT=$(echo "$ACTIVE_HOSTS" | wc -l)
+                log_scan "Found $HOST_COUNT active hosts on $NETWORK_RANGE:"
+                log_scan "$ACTIVE_HOSTS"
+            else
+                log_scan "Network discovery timed out or failed after ${NETWORK_DISCOVERY_TIMEOUT}s"
+            fi
         else
-            log_scan "Network discovery timed out or failed after ${NETWORK_DISCOVERY_TIMEOUT}s"
+            log_scan "No external network detected - localhost only environment"
         fi
     else
         log_scan "nmap not available - skipping network scan"
